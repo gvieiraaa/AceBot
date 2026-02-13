@@ -25,6 +25,7 @@ from cogs.tags import TagViewConverter
 from config import (
     AHKBIN_PASS,
     AHKBIN_URL,
+    AHKBIN_API_VERSION,
     CLOUDAHK_PASS,
     CLOUDAHK_URL,
     CLOUDAHK_USER,
@@ -1108,12 +1109,13 @@ class AutoHotkey(AceMixin, commands.Cog):
         return valid_attachments
 
     async def _upload_attachment(self, filename: str, content: str) -> tuple[str, str] | None:
-        payload = dict(code=content)
+        payload = dict(script=content)
 
-        try:
-            async with self.bot.aiohttp.post(AHKBIN_URL, data=payload, allow_redirects=False) as r:
-                if r.status == 302 and (loc := r.headers.get("Location")):
-                    return filename, loc.removeprefix("./?p=")
+        try: 
+            async with self.bot.aiohttp.post(AHKBIN_URL + AHKBIN_API_VERSION, json=payload, allow_redirects=False) as r:
+                response_json = await r.json()
+                if r.status == 200 and response_json.get("id"):
+                    return filename, response_json["id"]
         except (aiohttp.ClientError, asyncio.TimeoutError):
             pass
 
@@ -1129,13 +1131,13 @@ class AutoHotkey(AceMixin, commands.Cog):
     async def _delete_from_ahkbin(self, ids: list[str]) -> bool:
         auth64 = b64encode(f"ace:{AHKBIN_PASS}".encode()).decode()
         headers = {"Authorization": f"Basic {auth64}"}
-        params = dict(p=",".join(ids))
+        params = dict(pasteIds=ids)
 
         # should return the ids that failed instead of just a number
         try:
-            response = await self.bot.aiohttp.delete(AHKBIN_URL, headers=headers, params=params)
+            response: aiohttp.ClientResponse = await self.bot.aiohttp.delete(AHKBIN_URL + AHKBIN_API_VERSION, headers=headers, json=params)
             response_json = await response.json()
-            return response_json.get("succeeded") == len(ids)
+            return response_json.get("deleted") == len(ids)
         except (aiohttp.ClientError, asyncio.TimeoutError):
             return False
 
@@ -1268,7 +1270,7 @@ class AutoHotkey(AceMixin, commands.Cog):
             )
 
             for filename, link in links:
-                embed.add_field(name=escape_markdown(filename), value=f"{AHKBIN_URL}/?p={link}", inline=False)
+                embed.add_field(name=escape_markdown(filename), value=f"{AHKBIN_URL}/{link}", inline=False)
 
             await inter.edit_original_response(embed=embed, components=row)
 
@@ -1304,8 +1306,7 @@ class AutoHotkey(AceMixin, commands.Cog):
             for field in fields:
                 if field.value is None:
                     continue
-
-                match = re.search(r"\/\?p=(?P<id>.*)$", field.value)
+                match = re.search(r"\/(?P<id>[a-f0-9]{8})$", field.value)
                 if match:
                     ids.append(match.group("id"))
 
