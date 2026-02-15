@@ -1068,7 +1068,7 @@ class AutoHotkey(AceMixin, commands.Cog):
                 days=USER_LEFT_MESSAGE_DAYS_THRESHOLD
             )
             last_message = await thread.history(limit=1, after=limit_dt).flatten()
-            if last_message:
+            if not last_message:
                 continue
 
             await thread.send(
