@@ -56,6 +56,8 @@ DISCORD_UPLOAD_LIMIT = 8000000  # 8 MB
 AHKBIN_UPLOAD_LIMIT = 1000000  # 1 MB
 AHKBIN_VALID_EXT = ("ahk", "txt", "ahk2", "py")
 
+USER_LEFT_MESSAGE_DAYS_THRESHOLD = 7
+
 BULLET = "•"
 
 SKIP = disnake.PartialEmoji(name="⏩")
@@ -1060,6 +1062,13 @@ class AutoHotkey(AceMixin, commands.Cog):
                 continue
 
             if thread.locked:
+                continue
+
+            limit_dt = datetime.now(timezone.utc) - timedelta(
+                days=USER_LEFT_MESSAGE_DAYS_THRESHOLD
+            )
+            last_message = await thread.history(limit=1, after=limit_dt).flatten()
+            if last_message:
                 continue
 
             await thread.send(
