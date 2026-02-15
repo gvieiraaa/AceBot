@@ -1071,6 +1071,9 @@ class AutoHotkey(AceMixin, commands.Cog):
             if not last_message:
                 continue
 
+            if member.joined_at > last_message[0].created_at:
+                continue
+
             await thread.send(
                 embed=disnake.Embed(description="The thread owner is no longer in this server.")
             )
